@@ -16,7 +16,12 @@ class LineItem(Base):
     receipt_id: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True), ForeignKey("receipts.id"), index=True
     )
-    product_id: Mapped[int | None] = mapped_column(ForeignKey("products.id"), nullable=True)
+    product_id: Mapped[int | None] = mapped_column(
+        ForeignKey("products.id"), nullable=True, index=True
+    )
+    parsed_line_item_id: Mapped[int | None] = mapped_column(
+        ForeignKey("parsed_line_items.id"), nullable=True, index=True
+    )
 
     raw_description: Mapped[str] = mapped_column(String)
     quantity: Mapped[float] = mapped_column(Numeric(10, 3), default=1)
@@ -29,3 +34,4 @@ class LineItem(Base):
 
     receipt = relationship("Receipt", back_populates="line_items")
     product = relationship("Product")
+    parsed_line_item = relationship("ParsedLineItemRecord", back_populates="normalized_line_items")
