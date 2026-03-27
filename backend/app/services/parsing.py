@@ -54,7 +54,6 @@ _PRODUCT_HINTS = [
     "POWER KING",
     "CL",
     "ML",
-    "G",
 ]
 
 
@@ -76,7 +75,18 @@ def _looks_like_potential_item(line: str) -> bool:
 
 def _has_product_hint(line: str) -> bool:
     upper = line.upper()
-    return any(hint in upper for hint in _PRODUCT_HINTS)
+    tokens = set(re.findall(r"[A-ZÅÄÖ0-9%]+", upper))
+
+    for hint in _PRODUCT_HINTS:
+        if " " in hint:
+            if hint in upper:
+                return True
+            continue
+
+        if hint in tokens:
+            return True
+
+    return False
 
 
 def parse_receipt_text(text: str, default_currency: str = "SEK") -> ParsedReceipt:
@@ -88,8 +98,8 @@ def parse_receipt_text(text: str, default_currency: str = "SEK") -> ParsedReceip
     - Produces probable item rows with partial data where necessary
     """
 
-    raw_lines = [l for l in text.splitlines() if l.strip()]
-    lines = [l.strip() for l in raw_lines]
+    raw_lines = [raw_line for raw_line in text.splitlines() if raw_line.strip()]
+    lines = [raw_line.strip() for raw_line in raw_lines]
     merchant_name: Optional[str] = None
     purchase_dt: Optional[datetime] = None
     total_amount: Optional[float] = None

@@ -6,3 +6,12 @@ class HealthResponse(BaseModel):
     service: str
     environment: str
     version: str
+
+
+class ReadinessResponse(BaseModel):
+    status: str
+    service: str
+    environment: str
+    version: str
+    database_ready: bool
+    startup_error: str | None = None

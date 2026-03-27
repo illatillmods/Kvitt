@@ -1,4 +1,4 @@
-from datetime import datetime, timedelta
+from datetime import UTC, datetime, timedelta
 
 from sqlalchemy.orm import Session
 
@@ -6,8 +6,9 @@ from app.models.merchant import Merchant
 from app.models.product import Product
 from app.models.receipt import Receipt
 from app.models.line_item import LineItem
-from app.services.insights import compute_insights_summary
-from tests.utils_db import test_db_session
+from app.core.access import build_access_context
+from app.services.insights import compute_insights_summary_for_access
+from tests.utils_db import db_test_session
 
 
 def _seed_basic_history(db: Session) -> None:
@@ -20,7 +21,7 @@ def _seed_basic_history(db: Session) -> None:
     db.add_all([beer, snacks, energy])
     db.flush()
 
-    now = datetime.utcnow()
+    now = datetime.now(UTC)
 
     # Create a few receipts over the last 10 days
     for i in range(10):
@@ -57,14 +58,35 @@ def _seed_basic_history(db: Session) -> None:
 
 
 def test_compute_insights_summary_basic():
-    with test_db_session() as db:
+    with db_test_session() as db:
         _seed_basic_history(db)
-        summary = compute_insights_summary(db, period_days=30)
+        summary = compute_insights_summary_for_access(
+            db,
+            access=build_access_context("free"),
+            period_days=30,
+        )
 
     assert summary.period_days == 30
     assert summary.top_products
     assert summary.top_recurring_products
+    assert summary.weekday_vs_weekend == []
+    assert summary.time_of_day == []
+    assert summary.habits == []
+    assert summary.highlights == []
+    assert summary.access.tier == "free"
+
+
+def test_compute_insights_summary_premium_unlocks_deeper_data():
+    with db_test_session() as db:
+        _seed_basic_history(db)
+        summary = compute_insights_summary_for_access(
+            db,
+            access=build_access_context("premium"),
+            period_days=30,
+        )
+
     assert summary.weekday_vs_weekend
     assert summary.time_of_day
     assert summary.habits
     assert summary.highlights
+    assert summary.access.tier == "premium"

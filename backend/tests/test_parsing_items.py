@@ -57,3 +57,19 @@ ATT BETALA 200,00
     parsed = parse_receipt_text(text)
     assert parsed.total_amount == 200.00
     assert parsed.line_items == []
+
+
+def test_malformed_lines_do_not_crash_parsing():
+    text = """BUTIK Z
+2024-05-01 12:00
+MJOLK 1L 1x 12,,90
+BROD ???
+COLA 2..50
+SUMMA 45,50
+"""
+
+    parsed = parse_receipt_text(text)
+
+    assert parsed.merchant_name == "BUTIK Z"
+    assert parsed.total_amount == 45.50
+    assert isinstance(parsed.line_items, list)

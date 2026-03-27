@@ -1,7 +1,9 @@
 from datetime import datetime
 from typing import List, Optional
 
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict
+
+from app.schemas.access import AccessSnapshot
 
 
 class ProductInsight(BaseModel):
@@ -11,15 +13,51 @@ class ProductInsight(BaseModel):
     total_spend: float
     purchase_count: int
     last_purchase_at: Optional[datetime] = None
-
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 
 class TimeBucketInsight(BaseModel):
     label: str
     total_spend: float
     purchase_count: int
+
+
+class ProductPurchaseTrace(BaseModel):
+    receipt_id: str | None = None
+    line_item_id: int | None = None
+    merchant_name: str | None = None
+    normalized_name: str
+    category: str | None = None
+    raw_description: str
+    quantity: float
+    total_price: float
+    currency: str
+    purchase_datetime: datetime | None = None
+
+
+class ProductSearchSummary(BaseModel):
+    query: str
+    matched_product_count: int
+    total_spend: float
+    purchase_count: int
+    last_purchase_at: datetime | None = None
+    top_weekday: str | None = None
+    top_time_of_day: str | None = None
+
+
+class ProductSearchSuggestion(BaseModel):
+    label: str
+    type: str
+    match_count: int
+
+
+class ProductSearchResult(BaseModel):
+    summary: ProductSearchSummary
+    matched_products: List[ProductInsight]
+    purchases: List[ProductPurchaseTrace]
+    weekday_pattern: List[TimeBucketInsight]
+    time_of_day_pattern: List[TimeBucketInsight]
+    access: AccessSnapshot
 
 
 class HabitInsightOut(BaseModel):
@@ -45,3 +83,4 @@ class InsightsSummary(BaseModel):
 
     habits: List[HabitInsightOut]
     highlights: List[InsightHighlight]
+    access: AccessSnapshot

@@ -2,10 +2,11 @@ from datetime import datetime
 import uuid
 
 from sqlalchemy import DateTime, ForeignKey, Integer, Numeric, String
-from sqlalchemy.dialects.postgresql import JSONB, UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
+from app.core.time import utc_now
 from app.db.session import Base
+from app.db.types import GUID, JSONVariant
 
 
 class ParsedLineItemRecord(Base):
@@ -20,7 +21,7 @@ class ParsedLineItemRecord(Base):
     id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
 
     ocr_result_id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True), ForeignKey("ocr_results.id"), index=True
+        GUID(), ForeignKey("ocr_results.id"), index=True
     )
 
     # Position of the line in the OCR'ed text, 0-based
@@ -34,10 +35,10 @@ class ParsedLineItemRecord(Base):
     total_price: Mapped[float | None] = mapped_column(Numeric(10, 2), nullable=True)
 
     confidence: Mapped[float] = mapped_column(Numeric(3, 2), default=0.5)
-    notes: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
+    notes: Mapped[dict | None] = mapped_column(JSONVariant, nullable=True)
 
     created_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), default=datetime.utcnow
+        DateTime(timezone=True), default=utc_now
     )
 
     ocr_result = relationship("OcrResultRecord", back_populates="parsed_line_items")

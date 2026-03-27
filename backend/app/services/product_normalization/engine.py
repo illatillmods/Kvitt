@@ -13,7 +13,7 @@ from __future__ import annotations
 from typing import Optional
 
 from .models import NormalizationDecision, ProductCandidate
-from . import mappings_se, rules_se
+from . import ai_classifier, mappings_se, openai_classifier, rules_se
 from .text_utils import (
     extract_alcohol_percent,
     extract_size_ml,
@@ -78,12 +78,21 @@ def classify_product(raw_label: str, country_code: str = "SE") -> NormalizationD
     if decision:
         return decision
 
-    # 3) (Future) AI-assisted fallback could inspect candidate here.
-    # For now we just do a light normalization of the label.
+    # 3) Optional OpenAI classifier for long-tail purchases when configured.
+    decision = openai_classifier.classify(candidate)
+    if decision:
+        return decision
+
+    # 4) Local semantic classifier for broad offline coverage.
+    decision = ai_classifier.classify(candidate)
+    if decision:
+        return decision
+
+    # 5) Ultimate fallback keeps the item visible and analytics-safe.
     fallback_name = candidate.cleaned_label.title()
     return NormalizationDecision(
         normalized_name=fallback_name,
-        category=None,
-        confidence=0.2,
+        category="other",
+        confidence=0.35,
         source="fallback",
     )

@@ -1,6 +1,8 @@
 from app.services.parsing import parse_receipt_text
 from app.services.normalization import normalize_receipt
 from app.services.product_normalization import classify_product
+from app.services.product_normalization import engine
+from app.services.product_normalization.models import NormalizationDecision
 
 
 def test_normalization_handles_beer_energy_drink_and_chips():
@@ -46,8 +48,51 @@ SUMMA 71,70
 
 def test_classify_product_fallback_for_unknown_label():
     decision = classify_product("MYSTERY ITEM 123")
-    assert decision.category is None
+    assert decision.category == "other"
     assert decision.source == "fallback"
     assert 0.0 < decision.confidence <= 0.5
     # Name should be a lightly cleaned title-cased version
     assert decision.normalized_name.startswith("Mystery Item")
+
+
+def test_classify_product_ai_semantic_categories_cover_manual_long_tail_items():
+    coffee = classify_product("Islatte Havre")
+    detergent = classify_product("Tvättmedel Color")
+    headphones = classify_product("USB C Hörlurar")
+    transport = classify_product("SL 30-dagarskort")
+
+    assert coffee.category == "coffee_tea"
+    assert coffee.source == "ai"
+
+    assert detergent.category == "cleaning"
+    assert detergent.source == "ai"
+
+    assert headphones.category == "electronics"
+    assert headphones.source == "ai"
+
+    assert transport.category == "transport"
+    assert transport.source == "ai"
+
+
+def test_classify_product_prefers_openai_fallback_when_available(monkeypatch):
+    monkeypatch.setattr(engine.rules_se, "apply_rules", lambda candidate: None)
+    monkeypatch.setattr(engine.mappings_se, "lookup", lambda candidate: None)
+    monkeypatch.setattr(
+        engine.openai_classifier,
+        "classify",
+        lambda candidate: NormalizationDecision(
+            normalized_name="Adobe Creative Cloud",
+            category="subscription_service",
+            confidence=0.88,
+            source="ai",
+            rule_id="openai.test",
+        ),
+    )
+    monkeypatch.setattr(engine.ai_classifier, "classify", lambda candidate: None)
+
+    decision = classify_product("ADOBE CC MARS 2026")
+
+    assert decision.normalized_name == "Adobe Creative Cloud"
+    assert decision.category == "subscription_service"
+    assert decision.source == "ai"
+    assert decision.rule_id == "openai.test"

@@ -5,12 +5,20 @@ from dataclasses import dataclass
 from datetime import datetime, timedelta
 from typing import Dict, Iterable, List, Tuple
 
-from sqlalchemy import func, select
+from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from app.core.access import (
+    FEATURE_ADVANCED_HABIT_INSIGHTS,
+    FEATURE_BASIC_STATISTICS,
+    FEATURE_DEEPER_TRENDS,
+    AccessContext,
+)
+from app.core.time import utc_now
 from app.models.line_item import LineItem
 from app.models.product import Product
 from app.models.receipt import Receipt
+from app.schemas.access import AccessSnapshot
 from app.schemas.analytics import (
     HabitInsightOut,
     InsightHighlight,
@@ -53,7 +61,7 @@ def compute_insights_summary(db: Session, period_days: int = 30) -> InsightsSumm
     For MVP this is global (no per-user partitioning yet).
     """
 
-    now = datetime.utcnow()
+    now = utc_now()
     start = now - timedelta(days=period_days)
 
     # Load all relevant line items for the period
@@ -132,7 +140,7 @@ def compute_insights_summary(db: Session, period_days: int = 30) -> InsightsSumm
     # Build ProductInsight objects sorted by spend
     product_insights: List[ProductInsight] = []
     for pid, stats in product_stats.items():
-        product: Product = stats["product"]
+        product = stats["product"]
         product_insights.append(
             ProductInsight(
                 product_id=product.id,
@@ -255,6 +263,16 @@ def compute_insights_summary(db: Session, period_days: int = 30) -> InsightsSumm
                         )
                     )
 
+    access = AccessSnapshot(
+        tier="premium",
+        enabled_features=[
+            FEATURE_BASIC_STATISTICS,
+            FEATURE_ADVANCED_HABIT_INSIGHTS,
+            FEATURE_DEEPER_TRENDS,
+        ],
+        locked_features=[],
+    )
+
     return InsightsSummary(
         period_days=period_days,
         generated_at=now,
@@ -264,4 +282,54 @@ def compute_insights_summary(db: Session, period_days: int = 30) -> InsightsSumm
         time_of_day=tod_insights,
         habits=habit_insights,
         highlights=highlights,
+        access=access,
+    )
+
+
+def compute_insights_summary_for_access(
+    db: Session,
+    *,
+    access: AccessContext,
+    period_days: int = 30,
+) -> InsightsSummary:
+    summary = compute_insights_summary(db, period_days=period_days)
+
+    enabled_features = [FEATURE_BASIC_STATISTICS]
+    locked_features: list[str] = []
+    upgrade_copy: str | None = None
+
+    if access.allows(FEATURE_DEEPER_TRENDS):
+        enabled_features.append(FEATURE_DEEPER_TRENDS)
+    else:
+        summary = summary.model_copy(
+            update={
+                "weekday_vs_weekend": [],
+                "time_of_day": [],
+            }
+        )
+        locked_features.append(FEATURE_DEEPER_TRENDS)
+
+    if access.allows(FEATURE_ADVANCED_HABIT_INSIGHTS):
+        enabled_features.append(FEATURE_ADVANCED_HABIT_INSIGHTS)
+    else:
+        summary = summary.model_copy(
+            update={
+                "habits": [],
+                "highlights": [],
+            }
+        )
+        locked_features.append(FEATURE_ADVANCED_HABIT_INSIGHTS)
+
+    if locked_features:
+        upgrade_copy = "Premium adds advanced habits and deeper trends without restricting scanning or product tracking."
+
+    return summary.model_copy(
+        update={
+            "access": AccessSnapshot(
+                tier=access.tier,
+                enabled_features=enabled_features,
+                locked_features=locked_features,
+                upgrade_copy=upgrade_copy,
+            )
+        }
     )

@@ -7,6 +7,10 @@ backend/.mypy_cache/
 backend/__pycache__/
 backend/**/*.pyc
 backend/.env
+backend/*.sqlite3
+backend/tests/*.sqlite3
+backend/alembic/__pycache__/
+backend/alembic/versions/__pycache__/
 
 # Node / Expo
 mobile/node_modules/
@@ -17,3 +21,6 @@ mobile/.env
 mobile/.env.local
 mobile/.env.development.local
 mobile/.env.production.local
+
+# CI
+.github/.DS_Store
