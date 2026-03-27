@@ -1,0 +1,19 @@
+.DS_Store
+
+# Python
+backend/.venv/
+backend/.pytest_cache/
+backend/.mypy_cache/
+backend/__pycache__/
+backend/**/*.pyc
+backend/.env
+
+# Node / Expo
+mobile/node_modules/
+mobile/.expo/
+mobile/dist/
+mobile/web-build/
+mobile/.env
+mobile/.env.local
+mobile/.env.development.local
+mobile/.env.production.local
